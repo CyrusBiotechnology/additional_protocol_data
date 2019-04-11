@@ -1,12 +1,10 @@
 # RosettaAntibody Database
 
-RosettaAntibody is a hybrid homology/_de novo_ modeling approach for
-predicting antibody structure. As such, it is highly dependent on a
-database for antibody CDR and Framework templates.
+RosettaAntibody is a hybrid homology/_de novo_ modeling approach for predicting antibody structure. As such, it is highly dependent on a database for antibody CDR and Framework templates.
 
-The below text is true for the following git shas/branches:
-- rosetta/main: lqtza/scs_blast_updates_for_auto_db, 4db3fed871
-- rosetta/tools: lqtza/update-ab-db, a0ad97f1be
+Historically, we have retained a database of templates in the tools repository, where the original grafting script was located. Recently, we have moved the grafting code into C++. Now, I would like to move the database to additional\_protocol\_data and introduce a script that permits for the automatic update of the database (if this script should be located in another repo, please let me know). Changes to the C++ code are primarily to read in the updated data files since they have slightly new format.
+
+Below, I compare the new and old database as these are not integration tested.
 
 ## Database Contents
 
