@@ -672,6 +672,7 @@ def truncate_antibody_pdbs():
         # check if "pdb_trunc.pdb" exits, if not then generate it
         if os.path.isfile("antibody_database/" + pdb + "_trunc.pdb"):
             print("We think a truncated version of " + pdb + " was found. Skipping.")
+            os.remove("antibody_database/" + pdb + ".pdb") # delete old file just in case
             continue
 
         pdb_text = ""
@@ -815,9 +816,10 @@ def download_antibody_pdbs():
             continue
         counter += 1
         fpath = "antibody_database/{}.pdb".format(pdb[-8:-4])
+        fpath_trunc = "antibody_database/{}_trunc.pdb".format(pdb[-8:-4]) # we use this naming later on
         #fpath_bz = "antibody_database/{}.pdb.bz2".format(pdb[-8:-4])
         #if not (os.path.isfile(fpath) or os.path.isfile(fpath_bz)):
-        if not os.path.isfile(fpath):
+        if not os.path.isfile(fpath_trunc):
             with open(fpath, "w") as f:
                 print("Downloading {}... {}/{}".format(pdb[-8:-4], counter, len(pdb_urls)))
                 # won't timeout if no internet, so ...
@@ -846,7 +848,7 @@ if __name__ == "__main__":
     import pyrosetta
     from pyrosetta.rosetta.protocols import antibody
     from pyrosetta.rosetta.protocols import loops
-    pyrosetta.init("-check_cdr_chainbreaks false")
+    pyrosetta.init("-check_cdr_chainbreaks false -ignore_zero_occupancy false")
     # if you want to mute Rosetta output
     #pyrosetta.init("-check_cdr_chainbreaks false -mute all")
     # check for execution in correct dir
