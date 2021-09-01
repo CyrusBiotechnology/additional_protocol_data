@@ -16,8 +16,9 @@
 ## After download, trim Abs to Fv and extract FR and CDR sequences.
 ## For the purpose of trimming, truncate the heavy @112 and light @109
 ## Some directories (antibody_database, info, etc...) are hard coded.
+## Tested with Python 3.9 as of 2021.09.01
 
-import urllib2
+from urllib.request import urlopen, Request
 import math
 import re
 import os
@@ -750,52 +751,45 @@ def download_antibody_pdbs():
     chothia-numbered, sub 3-Angstrom antibody structures.
     """
     # base url for SAbDab query
-    url_base = 'http://opig.stats.ox.ac.uk/webapps/sabdab-sabpred/'
-    url_query_base = url_base + 'DBrowser.php?'
+    url_base = 'http://opig.stats.ox.ac.uk/webapps/newsabdab/sabdab/'
+    url_query_base = url_base + 'search/?'
 
     # configure options for SAbDab query
-    options = { 'submitted' : 'true',
-                'nonredundant' : 'true',
-                'ab_ident' : '99%25',# 25 need for html
-                'only_complete' : 'false', # might need capital F
-                'incomple_nr' : '*',
-                'agtype' : '*',
-                'ag_ident' : '99%25',
-                'aglengthnr' : '50',
-                'resolution' : '3.0',
-                'nonredundant_selected' : 'true' }
-
-    # alternative options (all sub 3.0A structures)
-    options2 = { 'submitted' : 'true',
-                 'advanced' : 'true',
-                 'abtype' : '*',
-                 'method' : '*',
-                 'organism' : '*',
-                 'resolution' : '3.0',
-                 'rfactor': '*',
-                 'incomplex' : '*',
-                 'ag_type' : '*',
-                 'ag_length' : '50',
-                 'lctype' : '*',
-                 'hasconstant' : '*',
-                 'hasaffinity' : '*' }
+    options = {
+                'ABtype': 'All',
+                'method': 'X-RAY+DIFFRACTION',
+                'species': 'All',
+                'resolution': '3.0',
+                'rfactor': '',
+                'antigen': 'All',
+                'ltype': 'All',
+                'constantregion': 'All',
+                'affinity': 'All',
+                'isin_covabdab': 'All',
+                'isin_therasabdab': 'All',
+                'chothiapos': '',
+                'restype': 'ALA',
+                'field_0': 'Antigens',
+                'keyword_0' :'#dbsearch'
+                }
 
     # generate url from query
-    #sabdab_url =  url_query_base + '&'.join(['{0}={1}'.format(x,y) for x,y in options.items()])
-    sabdab_url =  url_query_base + '&'.join(['{0}={1}'.format(x,y) for x,y in options2.items()])
+    sabdab_url =  url_query_base + '&'.join(['{0}={1}'.format(x,y) for x,y in options.items()])
 
     # open page
-    webpage = urllib2.urlopen(urllib2.Request(sabdab_url))
+    webpage = urlopen(Request(sabdab_url))
 
     # read html and extract summary file, and download chothia PDBs
-    webpage_html = webpage.read() # PDBs in table, summary at end
+    webpage_html = webpage.read().decode("utf-8") # PDBs in table, summary at end
 
     # use regex to extract PDBs
-    chothia_pdb_re = re.compile('data/entries/\w\w\w\w/structure/chothia/\w\w\w\w.pdb')
-    summary_re = re.compile('a href=.* download=\"summary.csv\"')
+    chothia_pdb_re = re.compile("pdb/\w\w\w\w/\?raw=true")
+    summary_re = re.compile('<a href=.*>summary file')
     pdb_urls = chothia_pdb_re.findall(webpage_html, re.MULTILINE)
-    summary_url = summary_re.findall(webpage_html, re.MULTILINE) # should only find two
-    summary_url = summary_url[0].split(" download")[0][8:-1] # drop unnecessary chars
+    summary_url = summary_re.findall(webpage_html, re.MULTILINE) # should only find one
+    summary_url = summary_url[0].split(">")[0] # take just the href
+    summary_url = summary_url.split('sabdab/')[-1] # the part that should be appended to base
+    summary_url = summary_url[:-1] # drop unnecessary characters
 
     # make info and antibody_database directories if not present
     if not os.path.isdir("info"): os.mkdir("info")
@@ -803,29 +797,29 @@ def download_antibody_pdbs():
 
     # download summary file, always overwrite
     with open("info/sabdab_summary.tsv", "w") as f:
-        u = urllib2.urlopen(urllib2.Request(url_base + summary_url))
-        f.write(u.read())
+        u = urlopen(Request(url_base + summary_url))
+        f.write(u.read().decode("utf-8"))
 
     # download PDBs, check for *.pdb or *.pdb.bz before writing
     print("Found {} pdbs, beginning download.".format(len(pdb_urls)))
     counter = 0
     for pdb in pdb_urls:
-        if pdb[-8:-4] in ["1qok", "1dzb", "6b0w"]: # bad geometry -- skip
+        if pdb[4:8] in ["1qok", "1dzb", "6b0w"]: # bad geometry -- skip
             continue
-        if pdb[-8:-4] in ["6db7", "6iut"]: # AntibodyInfo construction issue
+        if pdb[4:8] in ["6db7", "6iut"]: # AntibodyInfo construction issue
             continue
         counter += 1
-        fpath = "antibody_database/{}.pdb".format(pdb[-8:-4])
-        fpath_trunc = "antibody_database/{}_trunc.pdb".format(pdb[-8:-4]) # we use this naming later on
+        fpath = "antibody_database/{}.pdb".format(pdb[4:8])
+        fpath_trunc = "antibody_database/{}_trunc.pdb".format(pdb[4:8]) # we use this naming later on
         #fpath_bz = "antibody_database/{}.pdb.bz2".format(pdb[-8:-4])
         #if not (os.path.isfile(fpath) or os.path.isfile(fpath_bz)):
         if not os.path.isfile(fpath_trunc):
             with open(fpath, "w") as f:
-                print("Downloading {}... {}/{}".format(pdb[-8:-4], counter, len(pdb_urls)))
+                print("Downloading {}... {}/{}".format(pdb[4:8], counter, len(pdb_urls)))
                 # won't timeout if no internet, so ...
-                u = urllib2.urlopen(urllib2.Request(url_base + pdb))
+                u = urlopen(Request(url_base + pdb))
                 # write pdb ?
-                f.write(u.read())
+                f.write(u.read().decode('utf-8'))
                 # write compressed bz2
                 #f.write(bz2.compress(u.read()))
 
